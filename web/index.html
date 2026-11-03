@@ -1,0 +1,445 @@
+<title>OH2 Impeller Workbench</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a pump vendor's performance sheet. Controls on the left like the data-sheet inputs,
+   the curve sheet on the right, checks under it. One column on phones. */
+:root {
+  --paper: #f3f5f4; --sheet: #ffffff; --ink: #17202a; --ink-2: #4d5a66; --rule: #d9dfe3;
+  --steel: #1c5a86; --steel-soft: #dbe8f2; --brass: #a8691a; --ghost: #9aa7b2;
+  --ok: #2b7a4b; --ok-bg: #e2f2e8; --bad: #b4342c; --bad-bg: #f8e3e1; --por: #e8f0f6;
+  --display: "Barlow Semi Condensed", "Arial Narrow", Arial, sans-serif;
+  --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #0e1317; --sheet: #151c22; --ink: #e5eaee; --ink-2: #9eabb6; --rule: #2a343c;
+  --steel: #64aee0; --steel-soft: #1d3446; --brass: #e2a54d; --ghost: #5b6873;
+  --ok: #6cc892; --ok-bg: #173226; --bad: #f08a80; --bad-bg: #3a1d1b; --por: #172631; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --paper: #0e1317; --sheet: #151c22; --ink: #e5eaee; --ink-2: #9eabb6; --rule: #2a343c;
+  --steel: #64aee0; --steel-soft: #1d3446; --brass: #e2a54d; --ghost: #5b6873;
+  --ok: #6cc892; --ok-bg: #173226; --bad: #f08a80; --bad-bg: #3a1d1b; --por: #172631; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font: 15px/1.5 var(--body); }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 24px;
+  border-bottom: 2px solid var(--ink); padding-bottom: 10px; margin-bottom: 18px; }
+h1 { font: 700 clamp(26px, 4vw, 38px)/1 var(--display); letter-spacing: 0.01em; margin: 0; text-wrap: balance; }
+h1 small { display: block; font: 500 13px/1.4 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 6px; }
+.dutyline { font: 500 14px/1.4 var(--mono); color: var(--ink-2); }
+.dutyline b { color: var(--ink); font-weight: 500; }
+
+.grid { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+
+.panel { background: var(--sheet); border: 1px solid var(--rule); border-radius: 4px; padding: 16px; min-width: 0; }
+.label { font: 600 12px/1.2 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-2); }
+h2 { font: 700 18px/1.2 var(--display); margin: 0 0 12px; letter-spacing: 0.02em; }
+.controls { display: grid; gap: 18px; }
+.group { display: grid; gap: 12px; }
+.group + .group { border-top: 1px solid var(--rule); padding-top: 16px; }
+.duty { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field { display: grid; gap: 4px; }
+.field input, .field select { width: 100%; font: 500 15px var(--mono); color: var(--ink); background: var(--paper);
+  border: 1px solid var(--rule); border-radius: 3px; padding: 7px 8px; }
+.field input:focus-visible, .field select:focus-visible, button:focus-visible, input[type=range]:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
+.slider { display: grid; gap: 2px; }
+.slider .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.slider output { font: 500 14px var(--mono); color: var(--steel); }
+.slider .hint { font-size: 12.5px; color: var(--ink-2); line-height: 1.35; }
+input[type=range] { width: 100%; accent-color: var(--steel); margin: 4px 0; }
+.buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+button { font: 600 14px var(--display); letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer;
+  border-radius: 3px; padding: 9px 12px; border: 1px solid var(--steel); background: transparent; color: var(--steel); }
+button.primary { background: var(--steel); color: var(--sheet); }
+button:disabled { opacity: 0.55; cursor: progress; }
+#status { font-size: 13px; color: var(--ink-2); min-height: 1.3em; }
+
+.readout { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--rule);
+  border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; margin-bottom: 18px; }
+@media (max-width: 560px) { .readout { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.cell { background: var(--sheet); padding: 12px 14px; min-width: 0; }
+.cell .v { font: 600 26px/1.1 var(--display); font-variant-numeric: tabular-nums; margin-top: 4px; }
+.cell .v .u { font-size: 15px; color: var(--ink-2); font-weight: 500; margin-left: 3px; }
+.cell .s { font: 400 12.5px/1.3 var(--mono); color: var(--ink-2); margin-top: 3px; }
+.delta { font: 500 12.5px var(--mono); }
+.delta.up { color: var(--ok); } .delta.down { color: var(--bad); }
+
+.charts { display: grid; gap: 18px; }
+.chart svg { display: block; width: 100%; height: auto; }
+.chart text { font-family: var(--mono); font-size: 11px; fill: var(--ink-2); }
+.chart .ttl { font-family: var(--display); font-size: 14px; font-weight: 600; fill: var(--ink); letter-spacing: 0.03em; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--ink-2); margin-top: 6px; }
+.legend i { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+@media (max-width: 700px) { .two { grid-template-columns: minmax(0, 1fr); } }
+
+.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.checks li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; font-size: 14px; }
+.chip { font: 600 11.5px/1 var(--display); letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 7px; border-radius: 3px; }
+.chip.ok { color: var(--ok); background: var(--ok-bg); } .chip.bad { color: var(--bad); background: var(--bad-bg); }
+.checks .val { font: 500 13px var(--mono); color: var(--ink-2); text-align: right; }
+.note { font-size: 13.5px; color: var(--ink-2); max-width: 68ch; }
+.note p { margin: 0 0 8px; }
+.note a { color: var(--steel); }
+.geo { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.geo td { padding: 5px 0; border-bottom: 1px solid var(--rule); }
+.geo td:last-child { text-align: right; font: 500 13px var(--mono); font-variant-numeric: tabular-nums; }
+.warn { color: var(--bad); font-size: 13.5px; }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1><small>API 610 OH2 · single-stage overhung · 1D meanline model</small>Impeller Workbench</h1>
+    <div class="dutyline" id="dutyline"></div>
+  </header>
+
+  <div class="grid">
+    <aside class="panel controls" aria-label="Inputs">
+      <div class="group">
+        <h2>Duty point</h2>
+        <div class="duty">
+          <label class="field"><span class="label">Flow, gpm</span><input id="q" type="number" inputmode="decimal" value="660" min="100" max="3000" step="10"></label>
+          <label class="field"><span class="label">Head, ft</span><input id="h" type="number" inputmode="decimal" value="295" min="50" max="700" step="5"></label>
+          <label class="field"><span class="label">Speed, rpm</span>
+            <select id="n"><option value="3560" selected>3560</option><option value="2960">2960</option><option value="1780">1780</option><option value="1480">1480</option></select></label>
+          <label class="field"><span class="label">NPSH avail., ft</span><input id="npsha" type="number" inputmode="decimal" value="32.8" min="5" max="150" step="0.5"></label>
+        </div>
+        <div class="slider"><div class="hint">Speeds are 2-pole and 4-pole motors at 60 and 50 Hz. Defaults are an example refinery duty, not a real pump.</div></div>
+        <div id="dutywarn" class="warn" hidden></div>
+      </div>
+
+      <div class="group">
+        <h2>Impeller design</h2>
+        <div class="slider"><div class="row"><label class="label" for="z">Blade count</label><output id="z-o"></output></div>
+          <input id="z" type="range" min="4" max="9" step="1" value="6"><div class="hint">More blades guide the flow better (less slip) but block the eye and add friction.</div></div>
+        <div class="slider"><div class="row"><label class="label" for="b2">Outlet blade angle β2</label><output id="b2-o"></output></div>
+          <input id="b2" type="range" min="14" max="36" step="0.5" value="22.5"><div class="hint">Steeper angle makes more head per diameter, but flattens the curve toward shutoff.</div></div>
+        <div class="slider"><div class="row"><label class="label" for="w">Outlet width</label><output id="w-o"></output></div>
+          <input id="w" type="range" min="0.6" max="1.4" step="0.02" value="1"><div class="hint">Multiple of the statistical value for this specific speed.</div></div>
+        <div class="slider"><div class="row"><label class="label" for="e">Eye diameter</label><output id="e-o"></output></div>
+          <input id="e" type="range" min="0.85" max="1.25" step="0.01" value="1"><div class="hint">1.00 minimizes inlet relative velocity. Smaller leaks less; larger or smaller both raise NPSHr.</div></div>
+        <div class="slider"><div class="row"><label class="label" for="i">Inlet incidence</label><output id="i-o"></output></div>
+          <input id="i" type="range" min="0" max="6" step="0.25" value="3"><div class="hint">Blade angle minus flow angle at rated flow.</div></div>
+      </div>
+
+      <div class="group">
+        <div class="buttons">
+          <button id="opt" class="primary" type="button">Find best design</button>
+          <button id="reset" type="button">Baseline</button>
+        </div>
+        <div id="status" role="status"></div>
+      </div>
+    </aside>
+
+    <main style="min-width:0">
+      <section class="readout" id="readout" aria-label="Results at rated flow"></section>
+
+      <div class="charts">
+        <div class="panel chart"><svg id="hq" viewBox="0 0 760 330" role="img" aria-label="Head versus flow"></svg>
+          <div class="legend"><span><i style="background:var(--steel)"></i>This design</span><span><i style="background:var(--ghost)"></i>Baseline</span><span><i style="background:var(--por);height:10px"></i>Preferred operating region, 70–120% of BEP</span></div></div>
+        <div class="two">
+          <div class="panel chart"><svg id="eq" viewBox="0 0 380 250" role="img" aria-label="Efficiency versus flow"></svg></div>
+          <div class="panel chart"><svg id="nq" viewBox="0 0 380 250" role="img" aria-label="NPSH required versus flow"></svg></div>
+        </div>
+        <div class="two">
+          <div class="panel"><h2>Screening checks</h2><ul class="checks" id="checks"></ul></div>
+          <div class="panel chart"><svg id="plan" viewBox="0 0 380 300" role="img" aria-label="Impeller plan view"></svg>
+            <table class="geo" id="geo"></table></div>
+        </div>
+        <div class="panel note">
+          <h2>What is behind the numbers</h2>
+          <p>Every change re-sizes a complete pump for the duty: the impeller diameter is solved so the rated head is met, the inlet blade angle is set from the real flow angle (leakage and blade blockage included), and the volute throat is sized so the rated flow sits at the best efficiency point.</p>
+          <p>Head comes from Euler's equation with Wiesner slip, minus incidence, channel friction, volute and discharge-cone losses. Wear-ring leakage, disk friction (Daily–Nece) and a bearing and seal allowance set the power. Friction losses are scaled once so the hydraulic efficiency matches published statistics for pumps of this size and specific speed (Gülich, <i>Centrifugal Pumps</i>), and that scale is then held fixed.</p>
+          <p>This is a 1D estimate. Expect roughly 10–20% error on absolute head and efficiency against a real pump, and trust trends between designs more than the absolute values. The API 610 items are screening checks, not compliance. Source, tests and the full study: <a href="https://github.com/dmarkentell/pump-design" target="_blank" rel="noopener">github.com/dmarkentell/pump-design</a>.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="pump.js"></script>
+<script>
+(function () {
+  "use strict";
+  const P = window.Pump;
+  const GPM = 15850.32, FT = 3.28084, HP = 1 / 745.7;
+  const $ = (id) => document.getElementById(id);
+  const REQ = { margin_m: 1.0, bepLo: 80, bepHi: 110, rise: 10, deHaller: 0.7, b2min: 8 };
+  const BASE = { z: 6, beta2b: 22.5, b2_factor: 1, d1_factor: 1, incidence: 3 };
+  const svgNS = "http://www.w3.org/2000/svg";
+
+  let duty = null, k = null, base = null, cur = null;
+
+  function readDuty() {
+    return { q: +$("q").value / GPM, head: +$("h").value / FT, n: +$("n").value, npsha: +$("npsha").value / FT };
+  }
+  function readChoices() {
+    return { z: +$("z").value, beta2b: +$("b2").value, b2_factor: +$("w").value, d1_factor: +$("e").value, incidence: +$("i").value };
+  }
+  function setChoices(c) {
+    $("z").value = c.z; $("b2").value = c.beta2b; $("w").value = c.b2_factor; $("e").value = c.d1_factor; $("i").value = c.incidence;
+  }
+  function labels() {
+    $("z-o").textContent = $("z").value;
+    $("b2-o").textContent = (+$("b2").value).toFixed(1) + "°";
+    $("w-o").textContent = (+$("w").value).toFixed(2) + "×";
+    $("e-o").textContent = (+$("e").value).toFixed(2) + "×";
+    $("i-o").textContent = "+" + (+$("i").value).toFixed(2) + "°";
+  }
+
+  function run(choices) {
+    const { g } = P.designBepMatched(duty, choices, k);
+    const s = P.summarize(g, duty, k);
+    return { g, s, choices };
+  }
+  function checks(d) {
+    const s = d.s;
+    return [
+      ["NPSH margin ≥ 1 m (3.3 ft)", s.npsh_margin >= REQ.margin_m, (s.npsh_margin * FT).toFixed(1) + " ft"],
+      ["Rated flow 80–110% of BEP", s.rated_pct_bep >= REQ.bepLo && s.rated_pct_bep <= REQ.bepHi, s.rated_pct_bep.toFixed(0) + "%"],
+      ["Head rise to shutoff ≥ 10%", s.head_rise_pct >= REQ.rise, s.head_rise_pct.toFixed(1) + "%"],
+      ["Head keeps rising as flow drops", s.droop_pct <= 0.05, s.droop_pct > 0.05 ? "hump " + s.droop_pct.toFixed(2) + "%" : "stable"],
+      ["Relative velocity ratio w2/w1 ≥ 0.70", s.de_haller >= REQ.deHaller, s.de_haller.toFixed(2)],
+      ["Outlet width ≥ 8 mm (castable)", s.b2_mm >= REQ.b2min, s.b2_mm.toFixed(1) + " mm"],
+      ["Blade count 5–9 (usual at this Ns)", s.z >= 5 && s.z <= 9, s.z + " blades"],
+    ];
+  }
+  const feasible = (d) => checks(d).every((c) => c[1]);
+
+  // ---- drawing helpers -------------------------------------------------------------------
+  function el(tag, attrs, parent, text) {
+    const e = document.createElementNS(svgNS, tag);
+    for (const a in attrs) e.setAttribute(a, attrs[a]);
+    if (text != null) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function niceTicks(lo, hi, n) {
+    const span = hi - lo, step0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+    const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => span / s <= n) || 10 * mag;
+    const out = []; for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(10));
+    return { ticks: out, step };
+  }
+  function chart(svg, W, H, opt) {
+    svg.innerHTML = "";
+    const m = { l: 52, r: 14, t: 30, b: 38 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    const x = (v) => m.l + (v - opt.x0) / (opt.x1 - opt.x0) * iw;
+    const y = (v) => m.t + ih - (v - opt.y0) / (opt.y1 - opt.y0) * ih;
+    el("text", { x: m.l, y: 18, class: "ttl" }, svg, opt.title);
+    if (opt.por) el("rect", { x: x(opt.por[0]), y: m.t, width: x(opt.por[1]) - x(opt.por[0]), height: ih, fill: "var(--por)" }, svg);
+    const xt = niceTicks(opt.x0, opt.x1, opt.w > 500 ? 8 : 5).ticks, yt = niceTicks(opt.y0, opt.y1, 5).ticks;
+    for (const v of yt) { el("line", { x1: m.l, x2: m.l + iw, y1: y(v), y2: y(v), stroke: "var(--rule)" }, svg);
+      el("text", { x: m.l - 6, y: y(v) + 4, "text-anchor": "end" }, svg, v); }
+    for (const v of xt) { el("line", { x1: x(v), x2: x(v), y1: m.t + ih, y2: m.t + ih + 4, stroke: "var(--ink-2)" }, svg);
+      el("text", { x: x(v), y: m.t + ih + 17, "text-anchor": "middle" }, svg, v); }
+    el("line", { x1: m.l, x2: m.l + iw, y1: m.t + ih, y2: m.t + ih, stroke: "var(--ink-2)" }, svg);
+    el("text", { x: m.l + iw, y: H - 4, "text-anchor": "end" }, svg, opt.xlabel);
+    el("text", { x: m.l + iw, y: 18, "text-anchor": "end" }, svg, opt.ylabel);
+    const clip = "c" + Math.random().toString(36).slice(2);
+    const cp = el("clipPath", { id: clip }, el("defs", {}, svg));
+    el("rect", { x: m.l, y: m.t - 2, width: iw, height: ih + 2 }, cp);
+    const gplot = el("g", { "clip-path": `url(#${clip})` }, svg);
+    return { x, y, m, iw, ih, g: gplot, svg };
+  }
+  function line(c, pts, color, w, dash) {
+    const d = pts.map((p, i) => (i ? "L" : "M") + c.x(p[0]).toFixed(1) + " " + c.y(p[1]).toFixed(1)).join(" ");
+    el("path", { d, fill: "none", stroke: color, "stroke-width": w, "stroke-dasharray": dash || "none", "stroke-linejoin": "round" }, c.g);
+  }
+
+  function draw() {
+    const qmax = 1.5 * duty.q;
+    const cc = P.curve(cur.g, qmax, duty.n, k, 61), cb = P.curve(base.g, qmax, duty.n, k, 61);
+    const por = [0.7 * cur.s.q_bep * GPM, 1.2 * cur.s.q_bep * GPM];
+    const qx = (r) => r.q * GPM;
+    const hmax = Math.max(...cc.map((r) => r.head), ...cb.map((r) => r.head)) * FT;
+
+    const narrow = $("hq").parentElement.clientWidth < 560;
+    const HW = narrow ? 380 : 760, HH = narrow ? 280 : 330;
+    $("hq").setAttribute("viewBox", `0 0 ${HW} ${HH}`);
+    let c = chart($("hq"), HW, HH, { x0: 0, x1: qmax * GPM, y0: 0, y1: hmax * 1.08, title: "Head",
+      xlabel: "flow, gpm", ylabel: "total head, ft", por, w: HW });
+    line(c, cb.map((r) => [qx(r), r.head * FT]), "var(--ghost)", 2, "6 4");
+    line(c, cc.map((r) => [qx(r), r.head * FT]), "var(--steel)", 3);
+    el("line", { x1: c.x(duty.q * GPM), x2: c.x(duty.q * GPM), y1: c.m.t, y2: c.m.t + c.ih, stroke: "var(--ink-2)", "stroke-dasharray": "3 3" }, c.svg);
+    el("circle", { cx: c.x(duty.q * GPM), cy: c.y(duty.head * FT), r: 5.5, fill: "var(--ink)", stroke: "var(--sheet)", "stroke-width": 2 }, c.svg);
+    el("text", { x: c.x(duty.q * GPM) + (narrow ? -8 : 9), y: c.y(duty.head * FT) + (narrow ? 22 : -9), "text-anchor": narrow ? "end" : "start", style: "fill:var(--ink)" }, c.svg, `rated ${Math.round(duty.head * FT)} ft`);
+
+    c = chart($("eq"), 380, 250, { x0: 0, x1: qmax * GPM, y0: 0, y1: 100, title: "Efficiency", xlabel: "flow, gpm", ylabel: "%", por, w: 380 });
+    line(c, cb.map((r) => [qx(r), 100 * r.eta]), "var(--ghost)", 2, "6 4");
+    line(c, cc.map((r) => [qx(r), 100 * r.eta]), "var(--steel)", 3);
+    el("circle", { cx: c.x(cur.s.q_bep * GPM), cy: c.y(100 * cur.s.eta_bep), r: 4.5, fill: "var(--steel)" }, c.svg);
+    el("text", { x: c.x(cur.s.q_bep * GPM), y: c.y(100 * cur.s.eta_bep) - 9, "text-anchor": "middle", style: "fill:var(--ink)" }, c.svg, "BEP " + (100 * cur.s.eta_bep).toFixed(1) + "%");
+
+    const nmax = Math.max(...cc.map((r) => r.npshr), duty.npsha) * FT * 1.1;
+    c = chart($("nq"), 380, 250, { x0: 0, x1: qmax * GPM, y0: 0, y1: nmax, title: "NPSH required", xlabel: "flow, gpm", ylabel: "ft", por, w: 380 });
+    line(c, [[0, duty.npsha * FT], [qmax * GPM, duty.npsha * FT]], "var(--brass)", 2, "7 4");
+    line(c, [[0, (duty.npsha - REQ.margin_m) * FT], [qmax * GPM, (duty.npsha - REQ.margin_m) * FT]], "var(--brass)", 1.2, "2 3");
+    line(c, cb.map((r) => [qx(r), r.npshr * FT]), "var(--ghost)", 2, "6 4");
+    line(c, cc.map((r) => [qx(r), r.npshr * FT]), "var(--steel)", 3);
+    el("text", { x: c.m.l + 6, y: c.y(duty.npsha * FT) - 6, style: "fill:var(--brass)" }, c.svg, "available");
+    el("text", { x: c.m.l + 6, y: c.y((duty.npsha - REQ.margin_m) * FT) + 14, style: "fill:var(--brass)" }, c.svg, "− 1 m margin");
+
+    drawPlan();
+  }
+
+  function drawPlan() {
+    const svg = $("plan"); svg.innerHTML = "";
+    const g = cur.g, R = g.d2 / 2, cx = 190, cy = 160, sc = 120 / R;
+    el("text", { x: 12, y: 20, class: "ttl" }, svg, "Impeller plan view");
+    el("text", { x: 368, y: 20, "text-anchor": "end" }, svg, "to scale, Ø" + (g.d2 * 1000).toFixed(0) + " mm");
+    el("circle", { cx, cy, r: R * sc, fill: "var(--steel-soft)", stroke: "var(--ink-2)", "stroke-width": 1 }, svg);
+    el("circle", { cx, cy, r: g.d1 / 2 * sc, fill: "none", stroke: "var(--ink-2)", "stroke-dasharray": "4 3" }, svg);
+    el("circle", { cx, cy, r: g.dh / 2 * sc, fill: "var(--rule)", stroke: "var(--ink-2)" }, svg);
+    // camber line with blade angle linear in radius: dθ = dr / (r tan β)
+    const r1 = g.d1m / 2, N = 50, pts = [];
+    let th = 0;
+    for (let i = 0; i <= N; i++) {
+      const r = r1 + (R - r1) * i / N;
+      if (i > 0) {
+        const rm = r - (R - r1) / N / 2;
+        const b = (g.beta1b + (g.beta2b - g.beta1b) * (rm - r1) / (R - r1)) * Math.PI / 180;
+        th += ((R - r1) / N) / (rm * Math.tan(b));
+      }
+      pts.push([r, th]);
+    }
+    for (let j = 0; j < g.z; j++) {
+      const a = 2 * Math.PI * j / g.z;
+      const d = pts.map((p, i) => (i ? "L" : "M") + (cx + p[0] * sc * Math.cos(a - p[1])).toFixed(1) + " " + (cy - p[0] * sc * Math.sin(a - p[1])).toFixed(1)).join(" ");
+      el("path", { d, fill: "none", stroke: "var(--steel)", "stroke-width": 3.2, "stroke-linecap": "round" }, svg);
+    }
+    // rotation arrow (blades sweep back against rotation)
+    const ra = R * sc + 14, a0 = 0.35, a1 = 1.15;
+    el("path", { d: `M${cx + ra * Math.cos(a0)} ${cy - ra * Math.sin(a0)} A${ra} ${ra} 0 0 0 ${cx + ra * Math.cos(a1)} ${cy - ra * Math.sin(a1)}`, fill: "none", stroke: "var(--ink)", "stroke-width": 1.4 }, svg);
+    const ax = cx + ra * Math.cos(a1), ay = cy - ra * Math.sin(a1);
+    el("path", { d: `M${ax} ${ay} l9 -1 l-5 8 z`, fill: "var(--ink)" }, svg);
+    el("text", { x: cx + (ra + 8) * Math.cos(0.75), y: cy - (ra + 8) * Math.sin(0.75), style: "fill:var(--ink)" }, svg, "rotation");
+
+    const rows = [["Outlet diameter D2", `${(g.d2 * 1000).toFixed(1)} mm (${(g.d2 * 39.3701).toFixed(2)} in)`],
+      ["Outlet width b2", `${(g.b2 * 1000).toFixed(1)} mm`], ["Eye diameter", `${(g.d1 * 1000).toFixed(1)} mm`],
+      ["Blade angles β1 / β2", `${g.beta1b.toFixed(1)}° / ${g.beta2b.toFixed(1)}°`],
+      ["Volute throat area", `${(g.a_throat * 1e4).toFixed(1)} cm²`], ["Tip speed", `${cur.s.u2.toFixed(1)} m/s`]];
+    $("geo").innerHTML = rows.map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("");
+  }
+
+  function readout() {
+    const s = cur.s, b = base.s;
+    const dEta = 100 * (s.eta - b.eta), dP = (s.p_shaft_kw - b.p_shaft_kw) * 1000 * HP;
+    const isBase = JSON.stringify(cur.choices) === JSON.stringify(BASE);
+    const delta = (v, unit, good) => isBase ? `<span class="s">baseline design</span>` :
+      `<span class="delta ${good ? "up" : "down"}">${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(unit === "%" ? 2 : 1)}${unit} vs baseline</span>`;
+    const cells = [
+      ["Efficiency at rated", (100 * s.eta).toFixed(1), "%", delta(dEta, " pts", dEta >= 0)],
+      ["Shaft power", (s.p_shaft_kw * 1000 * HP).toFixed(1), "hp", delta(dP, " hp", dP <= 0)],
+      ["Impeller diameter", (s.d2_mm / 25.4).toFixed(2), "in", `<div class="s">${s.d2_mm.toFixed(1)} mm · ${s.z} blades</div>`],
+      ["NPSH required", (s.npshr * FT).toFixed(1), "ft", `<div class="s">margin ${(s.npsh_margin * FT).toFixed(1)} ft</div>`],
+      ["Rated vs BEP", s.rated_pct_bep.toFixed(0), "%", `<div class="s">BEP ${(s.q_bep * GPM).toFixed(0)} gpm</div>`],
+      ["Head rise to shutoff", s.head_rise_pct.toFixed(1), "%", `<div class="s">shutoff ${(s.head * (1 + s.head_rise_pct / 100) * FT).toFixed(0)} ft</div>`],
+    ];
+    $("readout").innerHTML = cells.map((c) => `<div class="cell"><div class="label">${c[0]}</div><div class="v">${c[1]}<span class="u">${c[2]}</span></div>${c[3].startsWith("<div") ? c[3] : `<div>${c[3]}</div>`}</div>`).join("");
+    $("checks").innerHTML = checks(cur).map((c) => `<li><span class="chip ${c[1] ? "ok" : "bad"}">${c[1] ? "Pass" : "Fail"}</span><span>${c[0]}</span><span class="val">${c[2]}</span></li>`).join("");
+  }
+
+  function header() {
+    const nq = P.nqOf(duty), ns = duty.n * Math.sqrt(duty.q * GPM) / Math.pow(duty.head * FT, 0.75);
+    $("dutyline").innerHTML = `<b>${Math.round(duty.q * GPM)}</b> gpm · <b>${Math.round(duty.head * FT)}</b> ft · <b>${duty.n}</b> rpm · Ns <b>${Math.round(ns)}</b> (nq ${nq.toFixed(1)})`;
+    const warn = nq < 10 || nq > 70;
+    $("dutywarn").hidden = !warn;
+    $("dutywarn").textContent = warn ? `Specific speed nq ${nq.toFixed(1)} is outside 10–70, where the correlations behind this model were fitted. Treat the results as rough.` : "";
+  }
+
+  function update() {
+    labels();
+    try {
+      cur = run(readChoices());
+      readout(); draw();
+      $("status").textContent = feasible(cur) ? "" : "This design fails at least one screening check.";
+    } catch (err) {
+      $("status").textContent = "No impeller reaches the rated head with these settings. Try a steeper outlet angle or a wider outlet.";
+    }
+  }
+
+  function setDuty() {
+    const d = readDuty();
+    if (!(d.q > 0 && d.head > 0 && d.npsha > 0)) { $("status").textContent = "Enter a positive flow, head and NPSH available."; return; }
+    duty = d;
+    try {
+      k = P.calibrate(duty);
+      base = run(BASE);
+    } catch (err) {
+      $("status").textContent = "This duty is outside what the model can size. Try a flow and head closer to a normal process pump.";
+      return;
+    }
+    header();
+    update();
+  }
+
+  let tmr = null;
+  ["q", "h", "npsha", "n"].forEach((id) => $(id).addEventListener(id === "n" ? "change" : "input", () => { clearTimeout(tmr); tmr = setTimeout(setDuty, 350); }));
+  ["z", "b2", "w", "e", "i"].forEach((id) => $(id).addEventListener("input", update));
+  $("reset").addEventListener("click", () => { setChoices(BASE); update(); });
+  let rz = null, lastW = window.innerWidth;
+  window.addEventListener("resize", () => { if (window.innerWidth === lastW) return; lastW = window.innerWidth;
+    clearTimeout(rz); rz = setTimeout(() => { if (cur) draw(); }, 150); });
+
+  // ---- optimizer: random search, then a shrinking pattern search around the best --------
+  const BOUNDS = { beta2b: [14, 36], b2_factor: [0.6, 1.4], d1_factor: [0.85, 1.25], incidence: [0, 6] };
+  function score(c) {
+    try { const d = run(c); return { d, f: feasible(d) ? d.s.eta : -1 + d.s.eta * 0.01 }; } catch (e) { return { d: null, f: -2 }; }
+  }
+  $("opt").addEventListener("click", () => {
+    const btn = $("opt"); btn.disabled = true;
+    let best = score(readChoices()), i = 0;
+    const total = 600;
+    const rnd = (a) => a[0] + Math.random() * (a[1] - a[0]);
+    function randomPhase() {
+      const t0 = performance.now();
+      while (i < total && performance.now() - t0 < 40) {
+        const c = { z: 5 + Math.floor(Math.random() * 5) };
+        for (const key in BOUNDS) c[key] = rnd(BOUNDS[key]);
+        const r = score(c); if (r.f > best.f) best = r; i++;
+      }
+      $("status").textContent = `Searching… ${i} of ${total} random designs`;
+      if (i < total) setTimeout(randomPhase, 0); else { step = 0.25; setTimeout(refine, 0); }
+    }
+    let step = 0.25, rounds = 0;
+    function refine() {
+      const t0 = performance.now();
+      while (step > 0.01 && performance.now() - t0 < 40) {
+        let improved = false;
+        const tries = [];
+        for (const key in BOUNDS) for (const sgn of [-1, 1]) {
+          const c = Object.assign({}, best.d.choices);
+          c[key] = Math.min(BOUNDS[key][1], Math.max(BOUNDS[key][0], c[key] + sgn * step * (BOUNDS[key][1] - BOUNDS[key][0])));
+          tries.push(c);
+        }
+        for (const dz of [-1, 1]) { const c = Object.assign({}, best.d.choices, { z: best.d.choices.z + dz }); if (c.z >= 5 && c.z <= 9) tries.push(c); }
+        for (const c of tries) { const r = score(c); if (r.f > best.f + 1e-6) { best = r; improved = true; } }
+        if (!improved) step /= 2;
+        rounds++;
+      }
+      $("status").textContent = `Refining… step ${(step * 100).toFixed(1)}% of range`;
+      if (step > 0.01) setTimeout(refine, 0); else finish();
+    }
+    function finish() {
+      btn.disabled = false;
+      if (!best.d || best.f < 0) { $("status").textContent = "No design met every check. Try more NPSH available or a different speed."; return; }
+      const c = best.d.choices;
+      setChoices({ z: c.z, beta2b: Math.round(c.beta2b * 2) / 2, b2_factor: Math.round(c.b2_factor * 50) / 50, d1_factor: Math.round(c.d1_factor * 100) / 100, incidence: Math.round(c.incidence * 4) / 4 });
+      update();
+      $("status").textContent = `Best design found: ${(100 * best.d.s.eta).toFixed(1)}% efficiency, every check passing. Sliders are rounded to their step.`;
+    }
+    if (!best.d) best = score(BASE);
+    setTimeout(randomPhase, 0);
+  });
+
+  setChoices(BASE);
+  setDuty();
+})();
+</script>
