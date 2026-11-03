@@ -45,11 +45,14 @@ class ImpellerSolid:
     h_blade: float = 0.0025      # element size on the blades
 
 
-def blade_camber(g: Geometry, n: int = 40):
-    """(r, theta) along the blade, blade angle linear in radius: d(theta) = dr / (r tan(beta))."""
+def blade_camber(g: Geometry, n: int = 40, extend: float = 0.0):
+    """(r, theta) along the blade, blade angle linear in radius: d(theta) = dr / (r tan(beta)).
+
+    extend continues the blade past D2 at the outlet angle (it is trimmed back to D2 later).
+    """
     r1, r2 = g.d1m / 2, g.d2 / 2
-    rs = np.linspace(r1, r2, n)
-    beta = np.radians(g.beta1b + (g.beta2b - g.beta1b) * (rs - r1) / (r2 - r1))
+    rs = np.linspace(r1, r2 + extend, n)
+    beta = np.radians(g.beta1b + (g.beta2b - g.beta1b) * np.clip((rs - r1) / (r2 - r1), 0, 1))
     f = 1 / (rs * np.tan(beta))
     th = np.concatenate([[0], np.cumsum((f[1:] + f[:-1]) / 2 * np.diff(rs))])
     return rs, -th            # negative: blades sweep back against +z (counter-clockwise) rotation
@@ -69,7 +72,8 @@ def build_mesh(g: Geometry, d_bore: float, hub_len: float, s: ImpellerSolid = Im
     zf = front_profile(g, s)
     t = s.t_shroud
     r_bore, r_hub, r1s, r2 = d_bore / 2, g.dh / 2, g.d1 / 2, g.d2 / 2
-    rs, th = blade_camber(g)
+    rx = r2 + 0.003                      # oversize outlet, turned to D2 at the end
+    rs, th = blade_camber(g, extend=rx - r2)
     r_le = rs[0]
 
     gmsh.initialize()
@@ -84,12 +88,12 @@ def build_mesh(g: Geometry, d_bore: float, hub_len: float, s: ImpellerSolid = Im
         out = occ.revolve([(2, surf)], 0, 0, 0, 0, 0, 1, 2 * math.pi)
         return [d for d in out if d[0] == 3]
 
-    back = revolve_polygon([(r_bore, -t), (r2, -t), (r2, 0), (r_bore, 0)])
+    back = revolve_polygon([(r_bore, -t), (rx, -t), (rx, 0), (r_bore, 0)])
     hub = revolve_polygon([(r_bore, -t), (r_hub, -t), (r_hub, hub_len - t), (r_bore, hub_len - t)])
-    front = revolve_polygon([(r1s, zf(r1s)), (r2, zf(r2)), (r2, zf(r2) + t), (r1s + s.lip_thick, zf(r1s) + t),
+    front = revolve_polygon([(r1s, zf(r1s)), (rx, zf(rx)), (rx, zf(rx) + t), (r1s + s.lip_thick, zf(r1s) + t),
                              (r1s + s.lip_thick, zf(r1s) + s.lip_len), (r1s, zf(r1s) + s.lip_len)])
     # passage envelope used to trim the blades; it overlaps both shrouds by half their thickness
-    env = revolve_polygon([(r_le, -t / 2), (r2, -t / 2), (r2, zf(r2) + t / 2), (r_le, zf(r_le) + t / 2)])
+    env = revolve_polygon([(r_le, -t / 2), (rx, -t / 2), (rx, zf(rx) + t / 2), (r_le, zf(r_le) + t / 2)])
 
     # blade: camber line thickened in plan view, extruded through the passage, trimmed to it
     x, y = rs * np.cos(th), rs * np.sin(th)
@@ -115,21 +119,29 @@ def build_mesh(g: Geometry, d_bore: float, hub_len: float, s: ImpellerSolid = Im
         blades.append(cp[0])
     occ.remove(env, recursive=True)
     solid, _ = occ.fuse(back, hub + front + blades)
+    # everything was built oversize at the outlet; turn the OD to D2 in one cut, like a lathe,
+    # so the shrouds and blade tips share a single outer face
+    lathe = occ.addCylinder(0, 0, -2 * t, 0, 0, hub_len + zf(r1s) + 4 * t, r2)
+    solid, _ = occ.intersect(solid, [(3, lathe)])
     occ.synchronize()
     gmsh.model.addPhysicalGroup(3, [d[1] for d in solid], 1)
+    n_volumes = len(solid)
 
     # finer elements on the blades, coarser elsewhere
     gmsh.option.setNumber("Mesh.MeshSizeMax", s.h)
     gmsh.option.setNumber("Mesh.MeshSizeMin", s.h_blade * 0.8)
     fld = gmsh.model.mesh.field
-    box = fld.add("MathEval")
-    fld.setString(box, "F", f"{s.h_blade} + ({s.h} - {s.h_blade}) * "
-                  f"(Sqrt(x*x+y*y) < {r_le - 0.002})")
-    fld.setAsBackgroundMesh(box)
+    cyl = fld.add("Cylinder")             # coarse inside the eye, fine where the blades are
+    fld.setNumber(cyl, "Radius", r_le - 0.002)
+    fld.setNumber(cyl, "ZCenter", 0.0)
+    fld.setNumber(cyl, "ZAxis", 1.0)
+    fld.setNumber(cyl, "VIn", s.h)
+    fld.setNumber(cyl, "VOut", s.h_blade)
+    fld.setAsBackgroundMesh(cyl)
     gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
     gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
     gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
-    gmsh.option.setNumber("Mesh.Algorithm3D", 10)          # HXT, parallel
+    gmsh.option.setNumber("Mesh.Algorithm3D", 1)           # Delaunay (HXT trips on boolean slivers)
     gmsh.model.mesh.generate(3)
     if msh_path:
         gmsh.write(msh_path)
@@ -203,7 +215,17 @@ def solve(p, t, body_force, traction, dirichlet, mat=CA6NM, tol=1e-8):
     clamp = facets[dirichlet(*mid)]
     D = basis.get_dofs(clamp).all()
     Kc, fc, x0, I = condense(K, f, D=D)
-    ml = pyamg.smoothed_aggregation_solver(Kc.tocsr(), B=None, max_coarse=2000)
+    # rigid-body modes (3 translations, 3 rotations) as near-null space for the multigrid
+    xyz = basis.doflocs
+    B = np.zeros((basis.N, 6))
+    for comp, idx in enumerate(basis.split_indices()):
+        B[idx, comp] = 1.0
+    ix, iy, iz = basis.split_indices()
+    B[ix, 3], B[iy, 3] = -xyz[1, ix], xyz[0, iy]
+    B[iy, 4], B[iz, 4] = -xyz[2, iy], xyz[1, iz]
+    B[ix, 5], B[iz, 5] = xyz[2, ix], -xyz[0, iz]
+    ml = pyamg.smoothed_aggregation_solver(Kc.tocsr(), B=B[I], max_coarse=2000,
+                                           strength=("symmetric", {"theta": 0.0}))
     M = ml.aspreconditioner(cycle="V")
     sol, info = cg(Kc, fc, rtol=tol, maxiter=2000, M=M)
     if info != 0:

@@ -2,13 +2,15 @@
 
 A design and analysis tool for a single-stage overhung process pump, the type API 610 calls
 **OH2** (centerline-mounted, its own bearing housing, flexibly coupled). It covers the pump in
-two parts:
+three parts:
 
 1. **Hydraulics.** It sizes a complete impeller and volute for a duty point, predicts the full
    performance curve, sweeps the choices a pump engineer makes, and optimizes for efficiency under
    the screening checks a buyer would apply.
 2. **Drive end.** From the impeller's radial and axial loads it sizes the shaft, bearings, key,
    coupling and motor, then checks seal-face deflection, fatigue and the first critical speed.
+3. **Impeller structure.** A 3D finite-element model of the impeller under spin, passage pressure,
+   side-gap pressure and blade loading.
 
 **Interactive version:** `web/` is a phone-friendly page that runs the hydraulic model in the
 browser, with sliders, live curves, an impeller drawing and a "find best design" button.
@@ -27,7 +29,8 @@ It is paid for in suction performance: the optimizer shrinks the eye until the N
 on its 1 m (3.3 ft) floor. The drive end for that impeller is a **75 hp motor** and a **4140 shaft
 stepping 30 / 45 / 50 / 60 mm**, with **40 µm** of deflection at the seal faces against the API 610
 limit of 50 µm. The first dry critical speed is **5.9× running speed**, and the lowest fatigue
-safety factor is **2.4**.
+safety factor is **2.4**. In 3D finite elements, the impeller's mesh-converged stresses peak at
+**79 MPa** at shutoff, **7×** below the yield strength of CA6NM cast stainless.
 
 ## Part 1: hydraulics
 
@@ -175,7 +178,65 @@ real pump that number should come from the bearing maker and the housing design.
 
 ![Modes](outputs/drive_03_modes.png)
 
-## Verification (`tests/`, 19 checks)
+## Part 3: impeller stress (3D finite elements)
+
+![Stress at shutoff](outputs/fea_02_shutoff.png)
+
+| Item | Rated flow | Shutoff |
+|---|---|---|
+| Static pressure rise across the impeller | 672 kPa | 764 kPa |
+| Pressure difference across each blade | 421 kPa | 397 kPa |
+| Von Mises, blades, 99th percentile | 69 MPa | **79 MPa** |
+| Von Mises, shrouds, 99th percentile | 40 MPa | 45 MPa |
+| Von Mises, hub, 99th percentile | 17 MPa | 17 MPa |
+| Peak at the sharp blade-to-rim corners | 273 MPa | 313 MPa (a mesh artifact, see below) |
+| Wear-ring lip growth (radial) | 2.2 µm | 2.3 µm, against 200 µm radial clearance |
+
+Material: ASTM A743 CA6NM, minimum yield 550 MPa. The impeller is a long way from yield. Its
+safety factor on the converged stresses is about 7, and even the singular corner peak stays
+below yield.
+
+### Model
+
+- **Geometry** built in gmsh/OpenCASCADE straight from the hydraulic design: a flat back shroud, a
+  conical front shroud following the meridional passage, the front wear-ring lip, the hub around
+  the 30 mm shaft, and 5 blades with the same camber lines as the plan view, fused into one
+  solid. Everything is built oversize at the outlet and then cut to D2 in a single step, the way a
+  lathe finishes the OD, so the shrouds and blade tips share one clean outer face.
+- **Mass check**: the solid weighs **3.57 kg**, against 3.49 kg from the drive end's hand estimate.
+- **Loads** at 3560 rpm, as gauge pressures relative to suction:
+  1. centrifugal body force, ρω²r;
+  2. passage pressure on every wetted surface, from the rothalpy balance
+     p − p_s = ρ/2[(u² − u1²) − (w² − w1²)], scaled to land on the hydraulic model's outlet pressure;
+  3. side-gap pressure on the outside of both shrouds, with the fluid rotating at half speed (the
+     same model the leakage and thrust use);
+  4. blade loading: each blade's circulation, 2π r2 cu2 / z, spread over its length, gives a mean
+     pressure difference ρ·w·Δw, added to the pressure side and taken off the suction side.
+- **Bore clamped** to the shaft. Quadratic tetrahedra (P2) in scikit-fem, 146k elements and 783k
+  unknowns, solved by conjugate gradients with an algebraic-multigrid preconditioner that is
+  given the six rigid-body modes. Each case takes about 6 minutes.
+
+### Which numbers to trust
+
+The same rated case on a coarser mesh (41k elements) moves the 99th-percentile stresses by only
+4–5% (blades 66 → 69 MPa), so those are **converged**. The peaks at the blade-to-rim corners keep
+climbing as the mesh refines (213 → 273 MPa), the signature of a **stress singularity** at a corner
+that has no fillet. A real casting has fillets there, and the peak would be finite and lower. The
+honest reading is that the converged values set the margin and the corners need fillets, not that
+the material sees 273 MPa.
+
+### Verification
+
+The same solver, applied to a rotating disc with a clamped bore and a free rim, reproduces the
+closed-form plane-stress hoop stress within **0.3%** at every radius checked (2% tolerance in the
+automated test, on a coarser mesh).
+
+### Not covered
+
+Fatigue from pressure pulsations as the blades pass the volute tongue (it needs the pulsation
+amplitude, which a 1D model does not give), casting fillets, and the impeller's own vibration modes.
+
+## Verification (`tests/`, 20 checks)
 
 | Check | What it proves |
 |---|---|
@@ -194,6 +255,7 @@ real pump that number should come from the bearing maker and the housing design.
 | DE-Goodman and L10 life against hand calculations | The fatigue and bearing formulas are coded right |
 | Radial load is smallest near BEP | The load model behaves physically |
 | The full design passes every check | End to end |
+| **Rotating disc, 3D FEA vs closed form** | The 3D solver and boundary conditions are right |
 
 ## Figures (`outputs/`)
 
@@ -206,6 +268,7 @@ real pump that number should come from the bearing maker and the housing design.
 | ![](outputs/05_blade_map.png) | **Blade count × outlet angle** map of efficiency and head rise. |
 | ![](outputs/06_tradeoff.png) | **1,000 random designs**: efficiency against NPSH required. |
 | ![](outputs/08_plan_view.png) | **Plan view** of both impellers, blade camber lines laid out from the blade-angle distribution. |
+| ![](outputs/fea_01_rated.png) | **Impeller stress at rated flow**, 3D finite elements. |
 
 ## Limits, stated plainly
 
@@ -222,9 +285,11 @@ real pump that number should come from the bearing maker and the housing design.
 - **The drive-end layout** (overhang, span, seal position) is a plausible arrangement for this
   size, not a drawing. Radial and axial loads are correlations with real scatter, and the thrust
   allowance is a judgment.
-- **The impeller mass** (3.5 kg) is estimated from 5 mm shrouds and the blade geometry. A real
-  casting is likely heavier, which would lower the critical speed. With a 5.9× margin, that does not
-  change the conclusion.
+- **The impeller mass** (3.5 kg, confirmed by the 3D solid) assumes 5 mm shrouds and no fillets. A
+  real casting is likely heavier, which would lower the critical speed. With a 5.9× margin, that
+  does not change the conclusion.
+- **The 3D impeller** has constant-thickness, cylindrical blades, a conical front shroud and no
+  fillets. Its corner peaks are singular (see Part 3); the 99th-percentile values are the ones to use.
 - The API 610 items are **screening checks, not compliance**. The standard is paid; check the
   exact clause values in your edition.
 - **The duty point is an example**, not a real pump.
@@ -233,16 +298,17 @@ real pump that number should come from the bearing maker and the housing design.
 
 ```bash
 pip install -r requirements.txt
-python -m pytest -q          # 19 checks, a few seconds
+python -m pytest -q          # 20 checks, about 15 seconds
 python run_study.py          # hydraulic study, about 10 minutes, writes outputs/
 python run_drive_end.py      # drive end for the optimized impeller, about 1 minute
+python run_impeller_fea.py   # 3D impeller stress, about 16 minutes (needs gmsh; on Linux, libGLU)
 ```
 
 Open `web/index.html` in a browser for the interactive version.
 
 ## Next steps
 
-- **Impeller structure**: FEA of the blades and shrouds under centrifugal and pressure loads.
+- **Impeller fatigue**: blade-pass pressure pulsation, with fillets modeled at the blade roots.
 - **Validation** against a published pump test curve.
 - **Drive end in the browser**: port the shaft and bearing checks to the phone page.
 
@@ -255,9 +321,11 @@ pump/calibrate.py     one-factor calibration against the statistics
 pump/correlations.py  Gülich efficiency correlations
 pump/shaftrule.py     motor selection and shaft size from the duty, so the hub is known first
 pump/drive_end.py     loads, shaft beam model, critical speeds, fatigue, bearings, key, motor
+pump/impeller_fea.py  3D impeller geometry (gmsh), P2 elasticity solve (scikit-fem + pyamg)
 run_study.py          hydraulic sweeps, design map, random sample, optimizer, figures
 run_drive_end.py      drive-end design and figures for the optimized impeller
+run_impeller_fea.py   impeller stress at rated flow and shutoff, plus a mesh-convergence run
 tests/                verification checks, including the JS port
 web/                  interactive page (index.html + pump.js)
-outputs/              figures, results.json, drive_end.json
+outputs/              figures, results.json, drive_end.json, fea.json
 ```

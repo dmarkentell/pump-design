@@ -2,3 +2,6 @@ numpy>=1.26
 scipy>=1.11
 matplotlib>=3.8
 pytest>=8
+scikit-fem>=10
+gmsh>=4.11
+pyamg>=5
