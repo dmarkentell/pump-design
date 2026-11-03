@@ -12,6 +12,9 @@ three parts:
 3. **Impeller structure.** A 3D finite-element model of the impeller under spin, passage pressure,
    side-gap pressure and blade loading.
 
+**Study guide:** [`docs/STUDY_GUIDE.md`](docs/STUDY_GUIDE.md) explains the reasoning behind every
+modeling choice, the problems found along the way, and a self-quiz.
+
 **Interactive version:** `web/` is a phone-friendly page that runs the hydraulic model in the
 browser, with sliders, live curves, an impeller drawing and a "find best design" button.
 
