@@ -1,0 +1,223 @@
+{
+ "shaft": {
+  "d_imp": 0.03,
+  "d_seal": 0.045,
+  "d_brg": 0.05,
+  "d_span": 0.060000000000000005,
+  "d_cpl": 0.03,
+  "hub_len": 0.0491390450421929
+ },
+ "layout": {
+  "seal_from_hub": 0.045,
+  "seal_chamber": 0.12,
+  "span": 0.19,
+  "coupling_overhang": 0.09,
+  "bearing_width": 0.027,
+  "shroud_thickness": 0.005,
+  "coupling_mass": 4.0,
+  "bearing_stiffness": 300000000.0,
+  "suction_gauge": null
+ },
+ "requirements": {
+  "seal_deflection_um": 50.0,
+  "l10_rated_h": 25000.0,
+  "l10_max_load_h": 16000.0,
+  "critical_margin": 1.2,
+  "fatigue_sf": 2.0,
+  "key_sf": 2.0,
+  "mcsf_frac": 0.4,
+  "aor_max_frac": 1.2,
+  "head_increase": 1.05
+ },
+ "results": {
+  "motor": {
+   "hp": 75,
+   "kw": 55.9275,
+   "torque": 150.0191811197524,
+   "p_rated_kw": 44.35412878018608,
+   "p_eoc_kw": 53.36116529922897,
+   "factor_needed": 1.2609310911543368
+  },
+  "loads": {
+   "rated_fr": 237.15461838726998,
+   "rated_fa": 156.44622242177962,
+   "worst_fr": 1808.8470778394951,
+   "worst_fa": 2602.669302895023,
+   "impeller_weight": 34.226529029831475,
+   "impeller_mass": 3.490134656567888,
+   "p_suction_gauge": -1096.0196999999898,
+   "d2_max": 0.22887517056073717
+  },
+  "seal": {
+   "x": 0.06956952252109645,
+   "deflection_um": 39.96611293492353,
+   "deflection_with_weight_um": 40.72234122051894,
+   "tip_um": 84.10740821835152
+  },
+  "critical": {
+   "rpm": 21132.14948747786,
+   "rigid_rpm": 24109.430338492315,
+   "ratio": 5.935997047044342,
+   "second_rpm": 25781.798943050944
+  },
+  "bearings": {
+   "inboard": {
+    "type": "deep-groove ball",
+    "bore_mm": 50.0,
+    "rated_load": 477.8729521714048,
+    "worst_load": 3245.4539822184506,
+    "c_req": 48885.77815397538
+   },
+   "outboard": {
+    "type": "paired 40 deg angular-contact ball, back to back",
+    "bore_mm": 50.0,
+    "rated_radial": 206.49180475430336,
+    "worst_radial": 1402.380375349124,
+    "rated_p": 292.53722708628214,
+    "worst_p": 3219.8392656413725,
+    "c_req_pair": 48499.94758638,
+    "c_req_single": 29938.239250851853
+   }
+  },
+  "fatigue": [
+   {
+    "name": "Impeller fit, keyseat",
+    "x": 0.02456952252109645,
+    "d": 0.03,
+    "kf": 2.14,
+    "kfs": 3.0,
+    "m": 45.28343849201438,
+    "sf": 2.697551749489987,
+    "sigma_a": 36558596.22654116,
+    "tau_m": 84893490.60909134,
+    "yield_sf": 4.322961955995063
+   },
+   {
+    "name": "Impeller fit to seal step, 3 mm fillet",
+    "x": 0.02456952252109645,
+    "d": 0.03,
+    "kf": 1.7,
+    "kfs": 1.5,
+    "m": 45.28343849201438,
+    "sf": 4.212671584213983,
+    "sigma_a": 29041875.507065408,
+    "tau_m": 42446745.30454567,
+    "yield_sf": 8.286089534799062
+   },
+   {
+    "name": "Inboard bearing shoulder, sharp fillet",
+    "x": 0.13106952252109644,
+    "d": 0.045,
+    "kf": 2.7,
+    "kfs": 2.2,
+    "m": 241.57077762359765,
+    "sf": 2.4377965786446762,
+    "sigma_a": 72907251.4187351,
+    "tau_m": 18445993.021234658,
+    "yield_sf": 8.228596928240604
+   }
+  ],
+  "key": {
+   "size": "8 x 7 mm (DIN 6885)",
+   "length_mm": 43.139045042192905,
+   "tau": 28979775.5476938,
+   "sigma": 77279401.46051681,
+   "sf": 4.787821761133055
+  },
+  "coupling": {
+   "torque_nameplate": 150.0191811197524,
+   "torque_rating_min": 225.02877167962862
+  },
+  "omega": 372.8023282259888,
+  "checks": [
+   [
+    "Seal-face deflection <= 50 um (API 610)",
+    true,
+    "40 um"
+   ],
+   [
+    "First dry critical >= 1.2 x running speed",
+    true,
+    "21132 rpm (5.94 x)"
+   ],
+   [
+    "Shaft fatigue safety factor >= 2 (DE-Goodman)",
+    true,
+    "2.44"
+   ],
+   [
+    "Key safety factor >= 2",
+    true,
+    "4.8"
+   ],
+   [
+    "Motor >= 115% of rated power (API 610)",
+    true,
+    "75 hp = 126%"
+   ],
+   [
+    "Motor covers end of curve, max impeller",
+    true,
+    "71.6 hp needed"
+   ]
+  ]
+ },
+ "stiffness_study": [
+  {
+   "k": 50000000.0,
+   "d_seal": null,
+   "d_brg": null,
+   "seal_um": null,
+   "crit": null
+  },
+  {
+   "k": 100000000.0,
+   "d_seal": null,
+   "d_brg": null,
+   "seal_um": null,
+   "crit": null
+  },
+  {
+   "k": 150000000.0,
+   "d_seal": 54.99999999999999,
+   "d_brg": 60.0,
+   "seal_um": 44.118152541561,
+   "crit": 20012.409124707385
+  },
+  {
+   "k": 200000000.0,
+   "d_seal": 49.99999999999999,
+   "d_brg": 55.0,
+   "seal_um": 40.67818007052134,
+   "crit": 21157.97707890158
+  },
+  {
+   "k": 300000000.0,
+   "d_seal": 45.0,
+   "d_brg": 50.0,
+   "seal_um": 39.96611293492353,
+   "crit": 21132.14948747786
+  },
+  {
+   "k": 500000000.0,
+   "d_seal": 45.0,
+   "d_brg": 50.0,
+   "seal_um": 33.443737946287456,
+   "crit": 22408.22819071326
+  },
+  {
+   "k": 1000000000.0,
+   "d_seal": 45.0,
+   "d_brg": 50.0,
+   "seal_um": 28.551956704176273,
+   "crit": 23317.55610281215
+  },
+  {
+   "k": 1000000000000.0,
+   "d_seal": 45.0,
+   "d_brg": 50.0,
+   "seal_um": 23.665067243984545,
+   "crit": 24109.430338492315
+  }
+ ]
+}

@@ -254,7 +254,7 @@ def fig_sweeps(base_ch: DesignChoices, k, fname: str) -> dict:
         "z": ("Blade count", [4, 5, 6, 7, 8, 9]),
         "beta2b": ("Outlet blade angle β2 (deg)", list(np.arange(14, 37, 2.0))),
         "b2_factor": ("Outlet width (x correlation)", list(np.linspace(0.6, 1.4, 11))),
-        "d1_factor": ("Eye diameter (x min-w1 value)", list(np.linspace(0.85, 1.25, 11))),
+        "d1_factor": ("Eye diameter (x min-NPSHr value)", list(np.linspace(0.85, 1.25, 11))),
     }
     metrics = [("eta", "Efficiency at rated (%)", 100), ("d2_mm", "Impeller dia. D2 (mm)", 1),
                ("head_rise_pct", "Head rise to shutoff (%)", 1), ("npshr", "NPSHr at rated (ft)", FT)]

@@ -13,6 +13,7 @@ from dataclasses import dataclass, replace
 from scipy.optimize import brentq
 
 from .meanline import G, Fluid, Geometry, LossCoeffs, bep, evaluate
+from .shaftrule import hub_diameter
 
 
 @dataclass(frozen=True)
@@ -38,7 +39,7 @@ class DesignChoices:
     z: int = 6
     beta2b: float = 22.5        # deg
     b2_factor: float = 1.0      # x correlation value
-    d1_factor: float = 1.0      # x eye diameter for minimum relative velocity
+    d1_factor: float = 1.0      # x eye diameter for minimum NPSH required
     incidence: float = 3.0      # deg added to the flow angle at rated flow
     throat_factor: float = 1.0  # throat velocity / impeller swirl at rated flow
 
@@ -56,8 +57,13 @@ def design(duty: Duty, ch: DesignChoices = DesignChoices(), fluid: Fluid = Fluid
            k: LossCoeffs = LossCoeffs()) -> Geometry:
     nq = duty.nq
     q_imp = duty.q * 1.05                       # allow ~5% leakage when sizing the eye
-    d1 = ch.d1_factor * 4.5 * (q_imp / duty.n_rpm) ** (1 / 3)
-    dh = max(0.030, 0.30 * d1)                  # hub sized by the overhung shaft
+    dh = hub_diameter(duty.q, duty.head, duty.n_rpm)   # hub fits around the shaft (shaftrule.py)
+    # Eye for minimum NPSH required: minimizing lam_c*cm1^2 + lam_w*w1^2 gives
+    # d1 = 4.5 (Q / (k n))^(1/3) with k = 1 - (dh/d1)^2 the share of the eye the hub leaves free.
+    d1 = 4.5 * (q_imp / duty.n_rpm) ** (1 / 3)
+    for _ in range(30):
+        d1 = 4.5 * (q_imp / ((1 - (dh / d1) ** 2) * duty.n_rpm)) ** (1 / 3)
+    d1 *= ch.d1_factor
     d1m = math.sqrt((d1 ** 2 + dh ** 2) / 2)
     u1m = math.pi * d1m * duty.n_rpm / 60
     cm1 = q_imp / (math.pi / 4 * (d1 ** 2 - dh ** 2))

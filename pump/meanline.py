@@ -177,7 +177,7 @@ def evaluate(geom: Geometry, q: float, n_rpm: float,
 
     return dict(
         q=q, head=head, eta=eta, eta_h=head / h_th if h_th > 0 else 0.0, p_shaft=p_shaft, npshr=npshr,
-        h_th=h_th, q_leak=q_leak, eta_vol=q / qi, sigma=sigma,
+        h_th=h_th, h_p=h_p, q_leak=q_leak, q_imp=qi, eta_vol=q / qi, sigma=sigma,
         u2=u2, cu2=cu2, cm2=cm2, cm1=cm1, w1s=w1s, w2=w2, de_haller=w2 / w1s,
         beta1_flow=math.degrees(math.atan2(cm1, u1m)),
         diffusion_factor=df,

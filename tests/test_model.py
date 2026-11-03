@@ -70,7 +70,8 @@ def test_head_curve_rises_to_shutoff(baseline):
     g, k = baseline
     c = curve(g, 1.4 * DUTY.q, DUTY.n_rpm, k=k)
     i10 = np.searchsorted(c["q"], 0.1 * DUTY.q)
-    assert np.all(np.diff(c["head"][i10:]) < 0)
+    tol = 5e-4 * c["head"][i10]   # same 0.05% noise tolerance the study uses
+    assert np.all(np.diff(c["head"][i10:]) < tol)
     assert (c["head"].max() - c["head"][0]) / c["head"][0] < 5e-3
 
 

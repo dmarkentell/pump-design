@@ -142,6 +142,22 @@
     return [q, evaluate(g, q, n, k).eta];
   }
 
+  // ---- shaftrule.py: motor and shaft from the duty alone, so the hub can be sized first ----
+  const NEMA_HP = [1, 1.5, 2, 3, 5, 7.5, 10, 15, 20, 25, 30, 40, 50, 60, 75, 100, 125, 150, 200, 250, 300, 350, 400, 450, 500];
+  const apiFactor = (pkw) => (pkw <= 22 ? 1.25 : pkw <= 55 ? 1.15 : 1.10);
+  function motorHp(duty) {
+    const nq = duty.n * Math.sqrt(duty.q) / Math.pow(duty.head, 0.75);
+    const p = FLUID.rho * G * duty.q * duty.head / etaOverallCorr(duty.q, nq) / 1e3;
+    const need = p * apiFactor(p) * 1e3 / 745.7;
+    return NEMA_HP.find((h) => h >= need - 1e-9) || need;
+  }
+  function shaftAtImpeller(duty) {
+    const t = motorHp(duty) * 745.7 / (2 * Math.PI * duty.n / 60);
+    const d = Math.cbrt(16 * t / (Math.PI * 40e6));
+    return Math.ceil(d * 1e3 / 5 - 1e-9) * 5 / 1e3;
+  }
+  const hubDiameter = (duty) => 1.6 * shaftAtImpeller(duty);
+
   const nqOf = (duty) => duty.n * Math.sqrt(duty.q) / Math.pow(duty.head, 0.75);
   const b2OverD2 = (nq) => { const x = nq / 100; return 0.017 + 0.262 * x - 0.08 * x * x + 0.0093 * x ** 3; };
   const psiOf = (nq) => 1.21 * Math.exp(-0.77 * nq / 100);
@@ -150,8 +166,10 @@
     ch = Object.assign({ z: 6, beta2b: 22.5, b2_factor: 1, d1_factor: 1, incidence: 3, throat_factor: 1 }, ch);
     const nq = nqOf(duty);
     const qImp = duty.q * 1.05;
-    const d1 = ch.d1_factor * 4.5 * Math.cbrt(qImp / duty.n);
-    const dh = Math.max(0.030, 0.30 * d1);
+    const dh = hubDiameter(duty);
+    let d1 = 4.5 * Math.cbrt(qImp / duty.n);
+    for (let i = 0; i < 30; i++) d1 = 4.5 * Math.cbrt(qImp / ((1 - (dh / d1) ** 2) * duty.n));
+    d1 *= ch.d1_factor;
     const d1m = Math.sqrt((d1 * d1 + dh * dh) / 2);
     const u1m = Math.PI * d1m * duty.n / 60;
     const cm1 = qImp / (Math.PI / 4 * (d1 * d1 - dh * dh));
@@ -252,7 +270,7 @@
   }
 
   const api = { G, LOSS, geometry, evaluate, bep, design, designBepMatched, calibrate, summarize, curve,
-                nqOf, etaHydraulicCorr, etaOverallCorr, slipWiesner };
+                nqOf, etaHydraulicCorr, etaOverallCorr, slipWiesner, motorHp, shaftAtImpeller, hubDiameter };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.Pump = api;
 })(typeof window !== "undefined" ? window : globalThis);
